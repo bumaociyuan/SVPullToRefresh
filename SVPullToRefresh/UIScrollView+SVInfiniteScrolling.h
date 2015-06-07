@@ -33,6 +33,10 @@ typedef NSUInteger SVInfiniteScrollingState;
 
 @interface SVInfiniteScrollingView : UIView
 
+@property (nonatomic, strong) UIColor *arrowColor;
+@property (nonatomic, strong) UIColor *textColor;
+
+
 @property (nonatomic, readwrite) UIActivityIndicatorViewStyle activityIndicatorViewStyle;
 @property (nonatomic, readonly) SVInfiniteScrollingState state;
 @property (nonatomic, readwrite) BOOL enabled;

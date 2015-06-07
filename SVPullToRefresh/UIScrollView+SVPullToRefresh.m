@@ -31,7 +31,7 @@ static CGFloat const SVPullToRefreshViewHeight = 60;
 @property (nonatomic, strong) UIActivityIndicatorView *activityIndicatorView;
 @property (nonatomic, strong, readwrite) UILabel *titleLabel;
 @property (nonatomic, strong, readwrite) UILabel *subtitleLabel;
-@property (nonatomic, readwrite) SVPullToRefreshState state;
+//@property (nonatomic, readwrite) SVPullToRefreshState state;
 @property (nonatomic, readwrite) SVPullToRefreshPosition position;
 
 @property (nonatomic, strong) NSMutableArray *titles;
@@ -178,11 +178,13 @@ static char UIScrollViewPullToRefreshView;
         self.textColor = [UIColor darkGrayColor];
         self.autoresizingMask = UIViewAutoresizingFlexibleWidth;
         self.state = SVPullToRefreshStateStopped;
-        self.showsDateLabel = NO;
+        self.showsDateLabel = YES;
         
-        self.titles = [NSMutableArray arrayWithObjects:NSLocalizedString(@"Pull to refresh...",),
-                             NSLocalizedString(@"Release to refresh...",),
-                             NSLocalizedString(@"Loading...",),
+        self.titles = [NSMutableArray arrayWithObjects:
+                       NSLocalizedString(@"下拉刷新...",),
+                       NSLocalizedString(@"松开刷新...",),
+                       NSLocalizedString(@"加载中...",),
+                       NSLocalizedString(@"没有更多了",),
                                 nil];
         
         self.subtitles = [NSMutableArray arrayWithObjects:@"", @"", @"", @"", nil];
@@ -216,7 +218,7 @@ static char UIScrollViewPullToRefreshView;
             [otherView removeFromSuperview];
     }
     
-    id customView = [self.viewForState objectAtIndex:self.state];
+    UIView *customView = [self.viewForState objectAtIndex:self.state];
     BOOL hasCustomView = [customView isKindOfClass:[UIView class]];
     
     self.titleLabel.hidden = hasCustomView;
@@ -267,9 +269,21 @@ static char UIScrollViewPullToRefreshView;
                         break;
                 }
                 break;
+            case SVPullToRefreshStateNoMore: {
+                [self.activityIndicatorView stopAnimating];
+                switch (self.position) {
+                    case SVPullToRefreshPositionTop:
+                        [self rotateArrow:0 hide:YES];
+                        break;
+                    case SVPullToRefreshPositionBottom:
+                        [self rotateArrow:(float)M_PI hide:YES];
+                        break;
+                }
+            }
+                break;
         }
         
-        CGFloat leftViewWidth = MAX(self.arrow.bounds.size.width,self.activityIndicatorView.bounds.size.width);
+        CGFloat leftViewWidth = MAX(self.arrow.layer.opacity?self.arrow.bounds.size.width:0,self.activityIndicatorView.isAnimating?self.activityIndicatorView.bounds.size.width:0);
         
         CGFloat margin = 10;
         CGFloat marginY = 2;
@@ -523,7 +537,7 @@ static char UIScrollViewPullToRefreshView;
         title = @"";
     
     if(state == SVPullToRefreshStateAll)
-        [self.titles replaceObjectsInRange:NSMakeRange(0, 3) withObjectsFromArray:@[title, title, title]];
+        [self.titles replaceObjectsInRange:NSMakeRange(0, 4) withObjectsFromArray:@[title, title, title, title]];
     else
         [self.titles replaceObjectAtIndex:state withObject:title];
     
@@ -631,7 +645,7 @@ static char UIScrollViewPullToRefreshView;
 
 - (void)setState:(SVPullToRefreshState)newState {
     
-    if(_state == newState)
+    if(_state == newState ||_state ==SVPullToRefreshStateNoMore)
         return;
     
     SVPullToRefreshState previousState = _state;
@@ -654,7 +668,12 @@ static char UIScrollViewPullToRefreshView;
             
             if(previousState == SVPullToRefreshStateTriggered && pullToRefreshActionHandler)
                 pullToRefreshActionHandler();
+            break;
             
+        case SVPullToRefreshStateNoMore: {
+            [self.scrollView setShowsPullToRefresh:NO];
+            self.hidden = NO;
+        }
             break;
     }
 }
@@ -681,66 +700,31 @@ static char UIScrollViewPullToRefreshView;
 }
 
 - (void)drawRect:(CGRect)rect {
-	CGContextRef c = UIGraphicsGetCurrentContext();
-	
-	// the rects above the arrow
-	CGContextAddRect(c, CGRectMake(5, 0, 12, 4)); // to-do: use dynamic points
-	CGContextAddRect(c, CGRectMake(5, 6, 12, 4)); // currently fixed size: 22 x 48pt
-	CGContextAddRect(c, CGRectMake(5, 12, 12, 4));
-	CGContextAddRect(c, CGRectMake(5, 18, 12, 4));
-	CGContextAddRect(c, CGRectMake(5, 24, 12, 4));
-	CGContextAddRect(c, CGRectMake(5, 30, 12, 4));
-	
-	// the arrow
-	CGContextMoveToPoint(c, 0, 34);
-	CGContextAddLineToPoint(c, 11, 48);
-	CGContextAddLineToPoint(c, 22, 34);
-	CGContextAddLineToPoint(c, 0, 34);
-	CGContextClosePath(c);
-	
-	CGContextSaveGState(c);
-	CGContextClip(c);
-	
-	// Gradient Declaration
-	CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-	CGFloat alphaGradientLocations[] = {0, 0.8f};
     
-	CGGradientRef alphaGradient = nil;
-    if([[[UIDevice currentDevice] systemVersion]floatValue] >= 5){
-        NSArray* alphaGradientColors = [NSArray arrayWithObjects:
-                                        (id)[self.arrowColor colorWithAlphaComponent:0].CGColor,
-                                        (id)[self.arrowColor colorWithAlphaComponent:1].CGColor,
-                                        nil];
-        alphaGradient = CGGradientCreateWithColors(colorSpace, (__bridge CFArrayRef)alphaGradientColors, alphaGradientLocations);
-    }else{
-        const CGFloat * components = CGColorGetComponents([self.arrowColor CGColor]);
-        size_t numComponents = CGColorGetNumberOfComponents([self.arrowColor CGColor]);
-        CGFloat colors[8];
-        switch(numComponents){
-            case 2:{
-                colors[0] = colors[4] = components[0];
-                colors[1] = colors[5] = components[0];
-                colors[2] = colors[6] = components[0];
-                break;
-            }
-            case 4:{
-                colors[0] = colors[4] = components[0];
-                colors[1] = colors[5] = components[1];
-                colors[2] = colors[6] = components[2];
-                break;
-            }
-        }
-        colors[3] = 0;
-        colors[7] = 1;
-        alphaGradient = CGGradientCreateWithColorComponents(colorSpace,colors,alphaGradientLocations,2);
-    }
-	
-	
-	CGContextDrawLinearGradient(c, alphaGradient, CGPointZero, CGPointMake(0, rect.size.height), 0);
+    /*
+            p1
+     
+        p3      p4
+            p2
+     */
     
-	CGContextRestoreGState(c);
-	
-	CGGradientRelease(alphaGradient);
-	CGColorSpaceRelease(colorSpace);
+    CGPoint p1 = CGPointMake(11, 12);
+    CGPoint p2 = CGPointMake(p1.x, 33);
+    CGPoint p3 = CGPointMake(3, 25);
+    CGPoint p4 = CGPointMake(19, 25);
+    
+    CGContextRef c = UIGraphicsGetCurrentContext();
+
+    CGContextMoveToPoint(c, p1.x, p1.y);
+    CGContextAddLineToPoint(c, p2.x , p2.y);
+
+    CGContextMoveToPoint(c, p2.x, p2.y);
+    CGContextAddLineToPoint(c, p3.x, p3.y);
+    CGContextMoveToPoint(c, p2.x, p2.y);
+    CGContextAddLineToPoint(c, p4.x, p4.y);
+
+    CGContextSetLineWidth(c, 1.2);
+    CGContextSetStrokeColorWithColor(c, [self.arrowColor CGColor]);
+    CGContextDrawPath(c, kCGPathStroke);
 }
 @end

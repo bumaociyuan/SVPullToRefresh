@@ -34,6 +34,7 @@ typedef NS_ENUM(NSUInteger, SVPullToRefreshState) {
     SVPullToRefreshStateStopped = 0,
     SVPullToRefreshStateTriggered,
     SVPullToRefreshStateLoading,
+    SVPullToRefreshStateNoMore,
     SVPullToRefreshStateAll = 10
 };
 
@@ -46,7 +47,7 @@ typedef NS_ENUM(NSUInteger, SVPullToRefreshState) {
 @property (nonatomic, strong, readwrite) UIColor *activityIndicatorViewColor NS_AVAILABLE_IOS(5_0);
 @property (nonatomic, readwrite) UIActivityIndicatorViewStyle activityIndicatorViewStyle;
 
-@property (nonatomic, readonly) SVPullToRefreshState state;
+@property (nonatomic, assign) SVPullToRefreshState state;
 @property (nonatomic, readonly) SVPullToRefreshPosition position;
 
 - (void)setTitle:(NSString *)title forState:(SVPullToRefreshState)state;
